@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { MoreHorizontal, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Check, Copy, MoreHorizontal, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { errorInfo, useGroupMutations, useGroups } from "@/api";
 import {
   Button,
@@ -20,7 +20,29 @@ import {
   PageHeader,
   Skeleton,
 } from "@/ui";
+function CopyId({ id }) {
+  const [copied, setCopied] = useState(false);
 
+  const copy = async () => {
+    await navigator.clipboard.writeText(id);
+    setCopied(true);
+    toast.success("Group ID copied");
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={id}
+      aria-label={`Copy group ID ${id}`}
+      className="hidden items-center gap-1.5 rounded-md border bg-white px-2 py-1 font-mono text-xs text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 sm:inline-flex"
+    >
+      {id.slice(0, 8)}…
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
 function GroupDialog({ group, onClose }) {
   const { save } = useGroupMutations();
   const {
@@ -131,7 +153,7 @@ export default function GroupsPage() {
                 <div className="font-medium">{g.name}</div>
                 {g.description && <div className="truncate text-xs text-slate-500">{g.description}</div>}
               </div>
-              <span className="hidden font-mono text-[11px] text-slate-400 lg:block">{g.id}</span>
+                           <CopyId id={g.id} />
               <Menu modal={false}>
                 <MenuTrigger
                   aria-label={`Actions for ${g.name}`}

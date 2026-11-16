@@ -1,4 +1,4 @@
-import { lazy, StrictMode, Suspense } from "react";
+import { lazy, StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   createBrowserRouter,
@@ -13,7 +13,7 @@ import {
 } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
-import { Flag, History, Settings, TriangleAlert, Users } from "lucide-react";
+import { ChevronRight, Flag, History, Settings, TriangleAlert, Users } from "lucide-react";
 import { envShortName, errorInfo, http, PLATFORM_LABEL } from "./api";
 import { AuthProvider, LoginPage, RequireAuth, UserMenu, useScope } from "./auth";
 import { Button, cn, envStyle, ErrorState, Spinner } from "./ui";
@@ -54,45 +54,89 @@ function groupByPlatform(envs) {
 }
 
 function EnvPicker() {
-  const { envs, envId } = useScope();
+  const { envs, envId, env: current } = useScope();
   const go = useEnvNavigation();
   const groups = groupByPlatform(envs);
   const showHeadings = groups.some((g) => g.key !== "OTHER");
+  const [open, setOpen] = useState(() => new Set([current?.platform ?? groups[0]?.key]));
+
+  useEffect(() => {
+    if (current?.platform) setOpen((prev) => (prev.has(current.platform) ? prev : new Set(prev).add(current.platform)));
+  }, [current?.platform]);
+
+  const toggle = (key) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
-    <div role="radiogroup" aria-label="Environment" className="space-y-4">
-      {groups.map((group) => (
-        <div key={group.key}>
-          {showHeadings && <p className="mb-1 px-3 text-xs font-medium text-slate-500">{group.label}</p>}
-          <div className="space-y-0.5">
-            {group.envs.map((env) => {
-              const active = env.id === envId;
-              return (
-                <button
-                  key={env.id}
-                  role="radio"
-                  aria-checked={active}
-                  aria-label={env.name}
-                  onClick={() => go(env.id)}
-                  className={cn(
-                    "relative flex w-full items-center rounded-md py-1.5 pl-4 pr-2 text-left text-sm text-slate-600 transition-colors hover:bg-white",
-                    active && cn("font-medium", envStyle[env.kind].soft),
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute inset-y-1.5 left-1.5 w-1 rounded-full",
-                      envStyle[env.kind].rail,
-                      !active && "opacity-40",
-                    )}
-                  />
-                  {envShortName(env)}
-                </button>
-              );
-            })}
+    <div role="radiogroup" aria-label="Environment" className="space-y-1">
+      {groups.map((group) => {
+        const expanded = !showHeadings || open.has(group.key);
+        const hasActive = group.envs.some((e) => e.id === envId);
+        return (
+          <div key={group.key}>
+            {showHeadings && (
+              <button
+                type="button"
+                aria-expanded={expanded}
+                onClick={() => toggle(group.key)}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-800",
+                  hasActive && !expanded && "text-slate-900",
+                )}
+              >
+                <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-90")} />
+                <span className="flex-1">{group.label}</span>
+                {!expanded && (
+                  <span className="flex gap-1" aria-hidden>
+                    {group.envs.map((e) => (
+                      <span
+                        key={e.id}
+                        className={cn("h-1.5 w-1.5 rounded-full", envStyle[e.kind].dot, e.id !== envId && "opacity-40")}
+                      />
+                    ))}
+                  </span>
+                )}
+              </button>
+            )}
+            {expanded && (
+              <div className={cn("space-y-0.5", showHeadings && "mb-2 mt-0.5")}>
+                {group.envs.map((env) => {
+                  const active = env.id === envId;
+                  return (
+                    <button
+                      key={env.id}
+                      role="radio"
+                      aria-checked={active}
+                      aria-label={env.name}
+                      onClick={() => go(env.id)}
+                      className={cn(
+                        "relative flex w-full items-center rounded-md py-1 pl-4 pr-2 text-left text-sm text-slate-600 transition-colors hover:bg-white",
+                        showHeadings && "pl-7",
+                        active && cn("font-medium", envStyle[env.kind].soft),
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute inset-y-1 w-1 rounded-full",
+                          showHeadings ? "left-4" : "left-1.5",
+                          envStyle[env.kind].rail,
+                          !active && "opacity-40",
+                        )}
+                      />
+                      {envShortName(env)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
